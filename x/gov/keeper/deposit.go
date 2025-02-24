@@ -60,9 +60,9 @@ func (keeper Keeper) IterateDeposits(ctx context.Context, proposalID uint64, cb 
 
 // AddDeposit adds or updates a deposit of a specific depositor on a specific proposal.
 // Activates voting period when appropriate and returns true in that case, else returns false.
-func (keeper Keeper) AddDeposit(ctx context.Context, proposalID uint64, depositorAddr sdk.AccAddress, depositAmount sdk.Coins) (bool, error) {
+func (k Keeper) AddDeposit(ctx context.Context, proposalID uint64, depositorAddr sdk.AccAddress, depositAmount sdk.Coins) (bool, error) {
 	// Checks to see if proposal exists
-	proposal, err := keeper.Proposals.Get(ctx, proposalID)
+	proposal, err := k.Proposals.Get(ctx, proposalID)
 	if err != nil {
 		return false, err
 	}
@@ -73,7 +73,7 @@ func (keeper Keeper) AddDeposit(ctx context.Context, proposalID uint64, deposito
 	}
 
 	// Check coins to be deposited match the proposal's deposit params
-	params, err := keeper.Params.Get(ctx)
+	params, err := k.Params.Get(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -85,7 +85,7 @@ func (keeper Keeper) AddDeposit(ctx context.Context, proposalID uint64, deposito
 	}
 
 	// the deposit must only contain valid denoms (listed in the min deposit param)
-	if err := keeper.validateDepositDenom(ctx, params, depositAmount); err != nil {
+	if err := k.validateDepositDenom(ctx, params, depositAmount); err != nil {
 		return false, err
 	}
 
@@ -121,14 +121,14 @@ func (keeper Keeper) AddDeposit(ctx context.Context, proposalID uint64, deposito
 	}
 
 	// update the governance module's account coins pool
-	err = keeper.bankKeeper.SendCoinsFromAccountToModule(ctx, depositorAddr, types.ModuleName, depositAmount)
+	err = k.bankKeeper.SendCoinsFromAccountToModule(ctx, depositorAddr, types.ModuleName, depositAmount)
 	if err != nil {
 		return false, err
 	}
 
 	// Update proposal
 	proposal.TotalDeposit = sdk.NewCoins(proposal.TotalDeposit...).Add(depositAmount...)
-	err = keeper.SetProposal(ctx, proposal)
+	err = k.SetProposal(ctx, proposal)
 	if err != nil {
 		return false, err
 	}
@@ -136,7 +136,7 @@ func (keeper Keeper) AddDeposit(ctx context.Context, proposalID uint64, deposito
 	// Check if deposit has provided sufficient total funds to transition the proposal into the voting period
 	activatedVotingPeriod := false
 	if proposal.Status == v1.StatusDepositPeriod && sdk.NewCoins(proposal.TotalDeposit...).IsAllGTE(minDepositAmount) {
-		err = keeper.ActivateVotingPeriod(ctx, proposal)
+		err = k.ActivateVotingPeriod(ctx, proposal)
 		if err != nil {
 			return false, err
 		}
@@ -145,7 +145,7 @@ func (keeper Keeper) AddDeposit(ctx context.Context, proposalID uint64, deposito
 	}
 
 	// Add or update deposit object
-	deposit, err := keeper.Deposits.Get(ctx, collections.Join(proposalID, depositorAddr))
+	deposit, err := k.Deposits.Get(ctx, collections.Join(proposalID, depositorAddr))
 	switch {
 	case err == nil:
 		// deposit exists
@@ -159,7 +159,7 @@ func (keeper Keeper) AddDeposit(ctx context.Context, proposalID uint64, deposito
 	}
 
 	// called when deposit has been added to a proposal, however the proposal may not be active
-	err = keeper.Hooks().AfterProposalDeposit(ctx, proposalID, depositorAddr)
+	err = k.Hooks().AfterProposalDeposit(ctx, proposalID, depositorAddr)
 	if err != nil {
 		return false, err
 	}
@@ -173,7 +173,7 @@ func (keeper Keeper) AddDeposit(ctx context.Context, proposalID uint64, deposito
 		),
 	)
 
-	err = keeper.SetDeposit(ctx, deposit)
+	err = k.SetDeposit(ctx, deposit)
 	if err != nil {
 		return false, err
 	}
