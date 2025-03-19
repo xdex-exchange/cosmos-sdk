@@ -14,6 +14,17 @@ import (
 
 // AddVote adds a vote on a specific proposal
 func (k Keeper) AddVote(ctx context.Context, proposalID uint64, voterAddr sdk.AccAddress, options v1.WeightedVoteOptions, metadata string) error {
+	// Checks to see if proposal exists
+	proposal, err := k.Proposals.Get(ctx, proposalID)
+	if err != nil {
+		return err
+	}
+
+	// Check if proposal is still depositable
+	if proposal.Status != v1.StatusVotingPeriod {
+		return errors.Wrapf(types.ErrInactiveProposal, "%d", proposalID)
+	}
+
 	// Check if proposal is in voting period.
 	inVotingPeriod, err := k.VotingPeriodProposals.Has(ctx, proposalID)
 	if err != nil {
